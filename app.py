@@ -1,10 +1,19 @@
 import csv
 import io
+import uuid
 
+import requests
 from flask import Flask, request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 app = Flask(__name__)
+
+
+class Hospital(BaseModel):
+    name: str
+    address: str
+    phone: str | None = None
+    creation_batch_id: str
 
 
 @app.get("/")
@@ -22,23 +31,11 @@ def upload_csv():
 
     try:
         stream = io.StringIO(file.stream.read().decode("utf-8"))
-        reader = csv.reader(stream)
-        header = next(reader)
+        reader = csv.DictReader(stream, skipinitialspace=True)
     except UnicodeDecodeError:
         return error_object(400, "csv file not utf-8 formatted")
-    except StopIteration:
-        return error_object(400, "csv file is empty")
 
-    if header != ["name", "address", "phone"]:
-        return error_object(
-            400,
-            "Ill-formatted csv header",
-            "Headers must be in the format 'name,address,phone'",
-        )
-
-    for row in reader:
-        hospital = validated_row(row)
-        print(hospital)
+    hospitals = validated_hospital(reader)
 
     return {}
 
@@ -54,3 +51,27 @@ def error_object(status: int, message: str, details: str | None = None):
     if details:
         response["details"] = details
     return (response, status)
+
+
+def validated_hospital(reader) -> list[Hospital]:
+
+    batch_id = str(uuid.uuid4())
+    hospitals = [Hospital]
+
+    for row in reader:
+        name = row["name"].strip() if row["name"] else None
+        address = row["address"].strip() if row["address"] else None
+
+        if not name or not address:
+            continue
+
+        phone = row["phone"].strip() if row["phone"] else None
+        hospital = Hospital(
+            name=name,
+            address=address,
+            phone=phone,
+            creation_batch_id=batch_id,
+        )
+        hospitals.append(hospital)
+
+    return hospitals
