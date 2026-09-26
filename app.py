@@ -1,6 +1,6 @@
-import csv
 import io
 import uuid
+from csv import DictReader
 
 import requests
 from flask import Flask, request
@@ -31,11 +31,17 @@ def upload_csv():
 
     try:
         stream = io.StringIO(file.stream.read().decode("utf-8"))
-        reader = csv.DictReader(stream, skipinitialspace=True)
+        reader = DictReader(stream, skipinitialspace=True)
     except UnicodeDecodeError:
         return error_object(400, "csv file not utf-8 formatted")
 
-    hospitals = validated_hospital(reader)
+    batch_id = str(uuid.uuid4())
+    hospitals = validated_hospital(reader, batch_id)
+
+    for hospital in hospitals:
+        upload_hospital(hospital)
+
+    activate_hospital(batch_id)
 
     return {}
 
@@ -53,10 +59,9 @@ def error_object(status: int, message: str, details: str | None = None):
     return (response, status)
 
 
-def validated_hospital(reader) -> list[Hospital]:
+def validated_hospital(reader: DictReader[str], batch_id: str) -> list[Hospital]:
 
-    batch_id = str(uuid.uuid4())
-    hospitals = [Hospital]
+    hospitals: list[Hospital] = []
 
     for row in reader:
         name = row["name"].strip() if row["name"] else None
@@ -75,3 +80,18 @@ def validated_hospital(reader) -> list[Hospital]:
         hospitals.append(hospital)
 
     return hospitals
+
+
+def upload_hospital(hospital: Hospital):
+    payload = hospital.model_dump(mode="json")
+    response = requests.post(
+        "https://hospital-directory.onrender.com/hospitals/", json=payload
+    )
+    return response
+
+
+def activate_hospital(batch_id: str):
+    response = requests.patch(
+        f"https://hospital-directory.onrender.com/hospitals/batch/{batch_id}/activate"
+    )
+    return response
