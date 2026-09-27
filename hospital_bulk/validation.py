@@ -2,31 +2,36 @@ import io
 from csv import DictReader
 
 from flask import Request
+from pydantic import ValidationError
 
-from .commons import InvalidCsvException
-from .models import Hospital
+from .commons import InvalidCsvException, MaxCsvLimitException
+from .models import CsvHospital
 
 
-def parsed_hospitals(data: list[dict], batch_id: str) -> list[Hospital]:
-    hospitals: list[Hospital] = []
+def parsed_hospitals(data: list[dict], batch_id: str) -> list[CsvHospital]:
+    hospitals: list[CsvHospital] = []
 
-    for row in data:
+    for i, row in enumerate(data):
         name = row["name"].strip() if row["name"] else None
         address = row["address"].strip() if row["address"] else None
         phone = row["phone"].strip() if row["phone"] else None
-        hospital = Hospital(
-            name=name,
-            address=address,
-            phone=phone,
-            creation_batch_id=batch_id,
-        )
-        hospitals.append(hospital)
+        try:
+            hospital = CsvHospital(
+                row_id=i + 1,
+                name=name,
+                address=address,
+                phone=phone,
+                creation_batch_id=batch_id,
+            )
+            hospitals.append(hospital)
+        except ValidationError:
+            raise InvalidCsvException(f"Invalid row at position {i + 1}")
 
     return hospitals
 
 
-def validated_hospital(hospitals: list[Hospital]) -> list[Hospital]:
-    return [hospital for hospital in hospitals if hospital.name and hospital.address]
+# def validated_hospital(hospitals: list[CsvHospital]) -> list[CsvHospital]:
+#     return [hospital for hospital in hospitals if hospital.name and hospital.address]
 
 
 def validated_csv(request: Request) -> list[dict]:
@@ -44,7 +49,10 @@ def validated_csv(request: Request) -> list[dict]:
 
     required_keys = {"name", "address"}
     if reader.fieldnames and all(key in reader.fieldnames for key in required_keys):
-        return list(reader)
+        data = list(reader)
+        if len(data) > 20:
+            raise MaxCsvLimitException(len(data))
+        return data
 
     raise InvalidCsvException("Missing required fields from CSV header - name, address")
 

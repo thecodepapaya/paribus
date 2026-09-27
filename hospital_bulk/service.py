@@ -1,0 +1,77 @@
+import uuid
+from datetime import datetime, timezone
+
+from flask import Request
+
+from .commons import error_object, success_object
+from .models import CsvHospital, UploadedHospital
+from .upstream import activate_hospital, upload_hospital
+from .validation import parsed_hospitals, validated_csv
+
+
+def validate_csv(request: Request):
+    data = validated_csv(request)
+    hospitals = parsed_hospitals(data, None)
+
+    return success_object(
+        200,
+        "CSV is valid",
+        {
+            "total_rows": len(data),
+            "invalid_rows": len(data) - len(hospitals),
+            "valid_hospitals": len(hospitals),
+        },
+    )
+
+
+def upload_bulk(request: Request):
+    batch_id = str(uuid.uuid4())
+    data = validated_csv(request)
+    hospitals = parsed_hospitals(data, batch_id)
+
+    if not hospitals:
+        return error_object(400, "No valid hospital to upload")
+
+    start = datetime.now(timezone.utc)
+
+    processed_hospitals: list[tuple[CsvHospital, UploadedHospital | None]] = []
+    processed_count = 0
+    failed_count = 0
+    for hospital in hospitals:
+        res = upload_hospital(hospital)
+        if res.status_code == 200:
+            processed_count += 1
+            processed_hospitals.append(
+                (hospital, UploadedHospital.model_validate_json(res.content))
+            )
+            continue
+        failed_count += 1
+        processed_hospitals.append((hospital, None))
+
+    if processed_count == 0:
+        return error_object(400, "No hospitals uploaded, cannot mark active")
+
+    response = activate_hospital(batch_id)
+    end = datetime.now(timezone.utc)
+
+    return {
+        "batch_id": batch_id,
+        "total_hospitals": len(hospitals),
+        "processed_hospitals": processed_count,
+        "failed_hospitals": failed_count,
+        "processing_time_seconds": (end - start).total_seconds(),
+        "batch_activated": response.status_code == 200,
+        "hospitals": [
+            {
+                "row": csv_hospital.row_id,
+                "hospital_id": None if upstream is None else upstream.id,
+                "name": csv_hospital.name,
+                "status": "created_and_activated"
+                if upstream is not None and response.status_code == 200
+                else "created"
+                if upstream is not None
+                else "failed",
+            }
+            for csv_hospital, upstream in processed_hospitals
+        ],
+    }
