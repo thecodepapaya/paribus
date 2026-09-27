@@ -11,7 +11,7 @@ class Hospital(BaseModel):
 
 class CsvHospital(Hospital):
     row_id: int
-    creation_batch_id: str | None
+    creation_batch_id: str
 
 
 class UploadedHospital(Hospital):

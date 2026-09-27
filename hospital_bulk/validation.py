@@ -12,9 +12,13 @@ def parsed_hospitals(data: list[dict], batch_id: str) -> list[CsvHospital]:
     hospitals: list[CsvHospital] = []
 
     for i, row in enumerate(data):
-        name = row["name"].strip() if row["name"] else None
-        address = row["address"].strip() if row["address"] else None
-        phone = row["phone"].strip() if row["phone"] else None
+        name = row.get("name")
+        address = row.get("address")
+        phone = row.get("phone")
+
+        name = name.strip() if isinstance(name, str) else None
+        address = address.strip() if isinstance(address, str) else None
+        phone = phone.strip() if isinstance(phone, str) else None
         try:
             hospital = CsvHospital(
                 row_id=i + 1,
@@ -30,10 +34,6 @@ def parsed_hospitals(data: list[dict], batch_id: str) -> list[CsvHospital]:
     return hospitals
 
 
-# def validated_hospital(hospitals: list[CsvHospital]) -> list[CsvHospital]:
-#     return [hospital for hospital in hospitals if hospital.name and hospital.address]
-
-
 def validated_csv(request: Request) -> list[dict]:
     if "file" not in request.files:
         raise InvalidCsvException("No file uploaded")
@@ -43,7 +43,7 @@ def validated_csv(request: Request) -> list[dict]:
 
     try:
         stream = io.StringIO(file.stream.read().decode("utf-8"))
-        reader = DictReader(stream, skipinitialspace=True)
+        reader = DictReader(stream, skipinitialspace=True, restkey="extra")
     except UnicodeDecodeError:
         raise InvalidCsvException("CSV file not utf-8 formatted")
 

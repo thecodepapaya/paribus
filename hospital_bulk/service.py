@@ -12,17 +12,7 @@ from .validation import parsed_hospitals, validated_csv
 
 def validate_csv(request: Request):
     data = validated_csv(request)
-    hospitals = parsed_hospitals(data, None)
-
-    return success_object(
-        200,
-        "CSV is valid",
-        {
-            "total_rows": len(data),
-            "invalid_rows": len(data) - len(hospitals),
-            "valid_hospitals": len(hospitals),
-        },
-    )
+    return success_object(200, f"CSV is valid, total_rows {len(data)}")
 
 
 def upload_bulk(request: Request):
@@ -38,11 +28,11 @@ def upload_bulk(request: Request):
     processed_count = 0
     failed_count = 0
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         responses = executor.map(upload_hospital, hospitals)
 
     for hospital, response in zip(hospitals, responses):
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             processed_count += 1
             processed_hospitals.append(
                 (hospital, UploadedHospital.model_validate_json(response.content))
@@ -56,6 +46,7 @@ def upload_bulk(request: Request):
 
     response = activate_hospital(batch_id)
     end = datetime.now(timezone.utc)
+    is_batch_activated = response is not None and response.status_code == 200
 
     return {
         "batch_id": batch_id,
@@ -63,18 +54,20 @@ def upload_bulk(request: Request):
         "processed_hospitals": processed_count,
         "failed_hospitals": failed_count,
         "processing_time_seconds": (end - start).total_seconds(),
-        "batch_activated": response.status_code == 200,
+        "batch_activated": is_batch_activated,
         "hospitals": [
             {
                 "row": csv_hospital.row_id,
-                "hospital_id": None if upstream is None else upstream.id,
+                "hospital_id": None
+                if uploaded_hospital is None
+                else uploaded_hospital.id,
                 "name": csv_hospital.name,
                 "status": "created_and_activated"
-                if upstream is not None and response.status_code == 200
+                if uploaded_hospital is not None and is_batch_activated
                 else "created"
-                if upstream is not None
+                if uploaded_hospital is not None
                 else "failed",
             }
-            for csv_hospital, upstream in processed_hospitals
+            for csv_hospital, uploaded_hospital in processed_hospitals
         ],
     }
