@@ -1,3 +1,4 @@
+import concurrent.futures
 import uuid
 from datetime import datetime, timezone
 
@@ -25,6 +26,7 @@ def validate_csv(request: Request):
 
 
 def upload_bulk(request: Request):
+    start = datetime.now(timezone.utc)
     batch_id = str(uuid.uuid4())
     data = validated_csv(request)
     hospitals = parsed_hospitals(data, batch_id)
@@ -32,17 +34,18 @@ def upload_bulk(request: Request):
     if not hospitals:
         return error_object(400, "No valid hospital to upload")
 
-    start = datetime.now(timezone.utc)
-
     processed_hospitals: list[tuple[CsvHospital, UploadedHospital | None]] = []
     processed_count = 0
     failed_count = 0
-    for hospital in hospitals:
-        res = upload_hospital(hospital)
-        if res.status_code == 200:
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        responses = executor.map(upload_hospital, hospitals)
+
+    for hospital, response in zip(hospitals, responses):
+        if response.status_code == 200:
             processed_count += 1
             processed_hospitals.append(
-                (hospital, UploadedHospital.model_validate_json(res.content))
+                (hospital, UploadedHospital.model_validate_json(response.content))
             )
             continue
         failed_count += 1
