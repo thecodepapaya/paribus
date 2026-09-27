@@ -1,0 +1,12 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+tests/
+bad.csv
+data.csv
+Senior_Python_Developer_Assignment.pdf

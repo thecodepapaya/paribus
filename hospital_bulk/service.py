@@ -4,15 +4,10 @@ from datetime import datetime, timezone
 
 from flask import Request
 
-from .commons import error_object, success_object
+from .commons import error_object
 from .models import CsvHospital, UploadedHospital
 from .upstream import activate_hospital, upload_hospital
 from .validation import parsed_hospitals, validated_csv
-
-
-def validate_csv(request: Request):
-    data = validated_csv(request)
-    return success_object(200, f"CSV is valid, total_rows {len(data)}")
 
 
 def upload_bulk(request: Request):

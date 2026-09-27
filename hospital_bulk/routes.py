@@ -1,7 +1,16 @@
+import uuid
+
 from flask import Blueprint, request
 
+from hospital_bulk.validation import parsed_hospitals, validated_csv
+
 from . import service
-from .commons import InvalidCsvException, MaxCsvLimitException, error_object
+from .commons import (
+    InvalidCsvException,
+    MaxCsvLimitException,
+    error_object,
+    success_object,
+)
 
 bp = Blueprint("hospitals", __name__)
 
@@ -14,7 +23,9 @@ def hello_paribus():
 @bp.post("/hospitals/bulk/validate")
 def validate_csv():
     try:
-        return service.validate_csv(request)
+        data = validated_csv(request)
+        _ = parsed_hospitals(data, str(uuid.uuid4()))
+        return success_object(200, f"CSV is valid, total_rows {len(data)}")
     except InvalidCsvException as e:
         return error_object(400, e.message)
     except MaxCsvLimitException as e:

@@ -12,14 +12,17 @@ def parsed_hospitals(data: list[dict], batch_id: str) -> list[CsvHospital]:
     hospitals: list[CsvHospital] = []
 
     for i, row in enumerate(data):
-        name = row.get("name")
-        address = row.get("address")
-        phone = row.get("phone")
+        if row.get("extra") is not None:
+            raise InvalidCsvException(f"Extra fields in row at position {i + 1}")
 
-        name = name.strip() if isinstance(name, str) else None
-        address = address.strip() if isinstance(address, str) else None
-        phone = phone.strip() if isinstance(phone, str) else None
         try:
+            name = row.get("name")
+            address = row.get("address")
+            phone = row.get("phone")
+
+            name = name.strip() or None if isinstance(name, str) else None
+            address = address.strip() or None if isinstance(address, str) else None
+            phone = phone.strip() or None if isinstance(phone, str) else None
             hospital = CsvHospital(
                 row_id=i + 1,
                 name=name,
