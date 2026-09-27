@@ -2,6 +2,8 @@
 
 Bulk-processing service for the Paribus assignment. Accepts CSV uploads and creates hospitals via the deployed [Hospital Directory API](https://hospital-directory.onrender.com/docs), with batch activation.
 
+**Live deployment:** https://paribus-yrax.onrender.com/
+
 ## Endpoints
 
 | Method | Path | Purpose |

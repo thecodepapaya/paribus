@@ -2,8 +2,6 @@ import uuid
 
 from flask import Blueprint, request
 
-from hospital_bulk.validation import parsed_hospitals, validated_csv
-
 from . import service
 from .commons import (
     InvalidCsvException,
@@ -11,6 +9,7 @@ from .commons import (
     error_object,
     success_object,
 )
+from .validation import parsed_hospitals, validated_csv
 
 bp = Blueprint("hospitals", __name__)
 

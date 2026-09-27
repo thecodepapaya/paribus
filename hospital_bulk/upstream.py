@@ -2,13 +2,14 @@ import logging
 
 import requests
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+from .models import CsvHospital
+
 logger = logging.getLogger(__name__)
 BASE_URL = "https://hospital-directory.onrender.com"
 
 
-def upload_hospital(hospital):
-    payload = hospital.model_dump(mode="json")
+def upload_hospital(hospital: CsvHospital):
+    payload = hospital.model_dump(mode="json", exclude={"row_id"})
     hospital_name = getattr(hospital, "name", "unknown")
     logger.info("Uploading hospital: %s", hospital_name)
 

@@ -2,6 +2,7 @@
 
 *.pyc
 __pycache__/
+.ruff_cache/
 
 instance/
 
@@ -12,3 +13,5 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+Senior_Python_Developer_Assignment.pdf
